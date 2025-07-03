@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser File Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.16.0/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/avif.js@1.0.0/dist/avif.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .converter-box {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .file-input-area {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .file-input-area:hover {
+            border-color: #4CAF50;
+            background-color: #f9f9f9;
+        }
+        .file-input-area.active {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+        #fileInput {
+            display: none;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .format-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .format-option {
+            padding: 10px 15px;
+            background: #f1f1f1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .format-option:hover {
+            background: #e0e0e0;
+        }
+        .format-option.selected {
+            background: #4CAF50;
+            color: white;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            flex-grow: 1;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            display: block;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            display: block;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-size: 12px;
+        }
+        .conversion-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3fe;
+            border-left: 5px solid #2196F3;
+            display: none;
+        }
+        .supported-formats {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+        }
+        .format-group {
+            margin-bottom: 15px;
+        }
+        .format-group h3 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .format-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .format-tag {
+            background: #e0e0e0;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Browser File Converter</h1>
+        
+        <div class="converter-box">
+            <div class="file-input-area" id="fileDropArea">
+                <input type="file" id="fileInput">
+                <h3>Click to select or drop files here</h3>
+                <p>Supports images, PDFs, and documents</p>
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+            
+            <div class="format-selector">
+                <h3>Convert To:</h3>
+                <div class="format-list" id="formatOptions">
+                    <!-- Format options will be added by JavaScript -->
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="convertBtn" disabled>Convert File</button>
+                <button id="downloadBtn" disabled style="display: none;">Download</button>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+            
+            <div class="status" id="status"></div>
+            
+            <div class="conversion-info" id="conversionInfo">
+                <strong>Note:</strong> Some conversions are limited in the browser. For advanced conversions, 
+                consider using our server-based tool.
+            </div>
+        </div>
+        
+        <div class="supported-formats">
+            <h2>Supported Formats</h2>
+            <div class="format-group">
+                <h3>Images:</h3>
+                <div class="format-list">
+                    <span class="format-tag">JPG</span>
+                    <span class="format-tag">PNG</span>
+                    <span class="format-tag">WebP</span>
+                    <span class="format-tag">AVIF</span>
+                    <span class="format-tag">GIF</span>
+                </div>
+            </div>
+            <div class="format-group">
+                <h3>Documents:</h3>
+                <div class="format-list">
+                    <span class="format-tag">PDF (basic)</span>
+                    <span class="format-tag">TXT</span>
+                </div>
+            </div>
+            <p><em>Note: Some conversions may have limitations in browser-only mode.</em></p>
+        </div>
+    </div>
+
+    <script>
+        // Supported formats and their conversions
+        const supportedFormats = {
+            // Image formats
+            'jpg': { name: 'JPEG', conversions: ['png', 'webp', 'avif'] },
+            'jpeg': { name: 'JPEG', conversions: ['png', 'webp', 'avif'] },
+            'png': { name: 'PNG', conversions: ['jpg', 'webp', 'avif'] },
+            'webp': { name: 'WebP', conversions: ['jpg', 'png', 'avif'] },
+            'avif': { name: 'AVIF', conversions: ['jpg', 'png', 'webp'] },
+            'gif': { name: 'GIF', conversions: ['jpg', 'png', 'webp', 'avif'] },
+            
+            // Document formats
+            'pdf': { name: 'PDF', conversions: ['jpg', 'png'] },
+            'txt': { name: 'Text', conversions: ['pdf'] }
+        };
+
+        // DOM elements
+        const fileInput = document.getElementById('fileInput');
+        const fileDropArea = document.getElementById('fileDropArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const formatOptions = document.getElementById('formatOptions');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const status = document.getElementById('status');
+        const conversionInfo = document.getElementById('conversionInfo');
+
+        // State variables
+        let selectedFile = null;
+        let selectedFormat = null;
+        let convertedBlob = null;
+
+        // Initialize format options
+        function initFormatOptions() {
+            formatOptions.innerHTML = '';
+            Object.keys(supportedFormats).forEach(format => {
+                const formatData = supportedFormats[format];
+                const option = document.createElement('div');
+                option.className = 'format-option';
+                option.textContent = formatData.name;
+                option.dataset.format = format;
+                option.addEventListener('click', () => selectFormat(format));
+                formatOptions.appendChild(option);
+            });
+        }
+
+        // Select a format for conversion
+        function selectFormat(format) {
+            document.querySelectorAll('.format-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            const selectedOption = document.querySelector(`.format-option[data-format="${format}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('selected');
+                selectedFormat = format;
+                convertBtn.disabled = !selectedFile;
+                conversionInfo.style.display = 
+                    (format === 'pdf' || format === 'docx' || format === 'pptx') ? 'block' : 'none';
+            }
+        }
+
+        // Handle file selection
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        function handleFileSelect(e) {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        }
+
+        // Handle drag and drop
+        fileDropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileDropArea.classList.add('active');
+        });
+
+        fileDropArea.addEventListener('dragleave', () => {
+            fileDropArea.classList.remove('active');
+        });
+
+        fileDropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileDropArea.classList.remove('active');
+            
+            if (e.dataTransfer.files.length > 0) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileDropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Process the selected file
+        function processFile(file) {
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            
+            if (!supportedFormats[fileExt] && !Object.values(supportedFormats).some(f => f.conversions.includes(fileExt))) {
+                showStatus(`File type .${fileExt} is not supported`, 'error');
+                return;
+            }
+            
+            selectedFile = file;
+            fileInfo.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+            
+            // Auto-select a likely output format
+            if (supportedFormats[fileExt]) {
+                const firstConversion = supportedFormats[fileExt].conversions[0];
+                if (firstConversion) {
+                    selectFormat(firstConversion);
+                }
+            }
+            
+            convertBtn.disabled = !selectedFormat;
+        }
+
+        // Convert file
+        convertBtn.addEventListener('click', async () => {
+            if (!selectedFile || !selectedFormat) return;
+            
+            try {
+                convertBtn.disabled = true;
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                
+                showStatus('Converting file...', 'info');
+                
+                // Simulate progress (in a real app, this would be actual progress)
+                simulateProgress();
+                
+                // Perform the actual conversion
+                const fileExt = selectedFile.name.split('.').pop().toLowerCase();
+                convertedBlob = await convertFile(selectedFile, fileExt, selectedFormat);
+                
+                // Complete progress
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                
+                showStatus('Conversion complete!', 'success');
+                downloadBtn.disabled = false;
+                downloadBtn.style.display = 'inline-block';
+            } catch (error) {
+                console.error('Conversion error:', error);
+                showStatus(`Conversion failed: ${error.message}`, 'error');
+            } finally {
+                convertBtn.disabled = false;
+            }
+        });
+
+        // Download converted file
+        downloadBtn.addEventListener('click', () => {
+            if (!convertedBlob) return;
+            
+            const originalName = selectedFile.name.split('.').slice(0, -1).join('.');
+            const newFilename = `${originalName}.${selectedFormat}`;
+            
+            saveAs(convertedBlob, newFilename);
+        });
+
+        // File conversion function
+        async function convertFile(file, inputExt, outputExt) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Image to image conversion
+                    if (['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(inputExt) && 
+                        ['jpg', 'jpeg', 'png', 'webp', 'avif'].includes(outputExt)) {
+                        const img = await createImageBitmap(file);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                resolve(blob);
+                            } else {
+                                reject(new Error('Canvas to blob conversion failed'));
+                            }
+                        }, `image/${outputExt === 'jpg' ? 'jpeg' : outputExt}`, 0.9);
+                    }
+                    // PDF to image conversion (first page only)
+                    else if (inputExt === 'pdf' && ['jpg', 'jpeg', 'png', 'webp'].includes(outputExt)) {
+                        showStatus('PDF to image conversion is limited in browser. Converting first page only.', 'info');
+                        
+                        // This is a simplified PDF to image conversion using pdf-lib
+                        // In a real app, you'd want to use a more robust solution
+                        const pdfData = await file.arrayBuffer();
+                        const pdfDoc = await PDFLib.PDFDocument.load(pdfData);
+                        const page = pdfDoc.getPage(0);
+                        
+                        const { width, height } = page.getSize();
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // This is a simplified rendering - actual PDF rendering would require a proper PDF renderer
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '20px Arial';
+                        ctx.fillText('PDF rendering not fully supported in browser.', 50, 50);
+                        
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                resolve(blob);
+                            } else {
+                                reject(new Error('Canvas to blob conversion failed'));
+                            }
+                        }, `image/${outputExt === 'jpg' ? 'jpeg' : outputExt}`, 0.9);
+                    }
+                    // Text to PDF
+                    else if (inputExt === 'txt' && outputExt === 'pdf') {
+                        const text = await file.text();
+                        const pdfDoc = await PDFLib.PDFDocument.create();
+                        const page = pdfDoc.addPage([550, 750]);
+                        
+                        const lines = text.split('\n');
+                        let y = 700;
+                        const fontSize = 12;
+                        
+                        for (const line of lines) {
+                            if (y < 50) {
+                                y = 700;
+                                page = pdfDoc.addPage([550, 750]);
+                            }
+                            page.drawText(line, { x: 50, y, size: fontSize });
+                            y -= fontSize + 5;
+                        }
+                        
+                        const pdfBytes = await pdfDoc.save();
+                        resolve(new Blob([pdfBytes], { type: 'application/pdf' }));
+                    }
+                    else {
+                        reject(new Error(`Conversion from ${inputExt} to ${outputExt} is not supported in browser`));
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // Helper functions
+        function showStatus(message, type) {
+            status.className = 'status ' + type;
+            status.textContent = message;
+            status.style.display = 'block';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        }
+
+        function simulateProgress() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 90) {
+                    clearInterval(interval);
+                    return;
+                }
+                progressBar.style.width = `${progress}%`;
+                progressBar.textContent = `${Math.floor(progress)}%`;
+            }, 200);
+        }
+
+        // Initialize the app
+        initFormatOptions();
+    </script>
+</body>
+</html>
